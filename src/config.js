@@ -6,6 +6,7 @@ class Config {
     this.input = {
       mode: core.getInput('mode'),
       githubToken: core.getInput('github-token'),
+      keyName: core.getInput('key-name'),
       ec2ImageId: core.getInput('ec2-image-id'),
       ec2InstanceType: core.getInput('ec2-instance-type'),
       ec2VolumeSize: core.getInput('ec2-volume-size'),
@@ -21,7 +22,10 @@ class Config {
     const tags = JSON.parse(core.getInput('aws-resource-tags'));
     this.tagSpecifications = null;
     if (tags.length > 0) {
-      this.tagSpecifications = [{ResourceType: 'instance', Tags: tags}, {ResourceType: 'volume', Tags: tags}];
+      this.tagSpecifications = [
+        { ResourceType: 'instance', Tags: tags },
+        { ResourceType: 'volume', Tags: tags },
+      ];
     }
 
     // the values of github.context.repo.owner and github.context.repo.repo are taken from
@@ -44,7 +48,7 @@ class Config {
       throw new Error(`The 'github-token' input is not specified`);
     }
 
-    if (this.input.mode === 'start') {
+    if (this.input.mode === 'start' || this.input.mode === 'start_spot') {
       if (!this.input.ec2ImageId || !this.input.ec2InstanceType || !this.input.subnetId || !this.input.securityGroupId) {
         throw new Error(`Not all the required inputs are provided for the 'start' mode`);
       }
@@ -53,7 +57,7 @@ class Config {
         throw new Error(`Not all the required inputs are provided for the 'stop' mode`);
       }
     } else {
-      throw new Error('Wrong mode. Allowed values: start, stop.');
+      throw new Error('Wrong mode. Allowed values: start, start_spot, stop.');
     }
   }
 

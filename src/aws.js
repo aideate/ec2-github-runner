@@ -36,6 +36,7 @@ async function startEc2Instance(label, githubRegistrationToken) {
   const params = {
     ImageId: config.input.ec2ImageId,
     InstanceType: config.input.ec2InstanceType,
+    KeyName: config.input.keyName,
     MinCount: 1,
     MaxCount: 1,
     UserData: Buffer.from(userData.join('\n')).toString('base64'),
@@ -56,6 +57,57 @@ async function startEc2Instance(label, githubRegistrationToken) {
   try {
     const result = await ec2.runInstances(params).promise();
     const ec2InstanceId = result.Instances[0].InstanceId;
+    core.info(`AWS EC2 instance ${ec2InstanceId} is started`);
+    return ec2InstanceId;
+  } catch (error) {
+    core.error('AWS EC2 instance starting error');
+    throw error;
+  }
+}
+
+async function startEc2SpotInstance(label, githubRegistrationToken) {
+  const ec2 = new AWS.EC2();
+
+  const userData = buildUserDataScript(githubRegistrationToken, label);
+  const launchSpec = {
+    ImageId: config.input.ec2ImageId,
+    InstanceType: config.input.ec2InstanceType,
+    KeyName: config.input.keyName,
+    UserData: Buffer.from(userData.join('\n')).toString('base64'),
+    SubnetId: config.input.subnetId,
+    SecurityGroupIds: [config.input.securityGroupId],
+    IamInstanceProfile: { Name: config.input.iamRoleName },
+    BlockDeviceMappings: [
+      {
+        DeviceName: config.input.ec2DeviceName,
+        Ebs: {
+          VolumeSize: config.input.ec2VolumeSize,
+        },
+      },
+    ],
+  };
+
+  const spotRequestParams = {
+    InstanceCount: 1,
+    LaunchSpecification: launchSpec,
+    Type: 'one-time',
+  };
+
+  try {
+    const result = await ec2.requestSpotInstances(spotRequestParams).promise();
+    const spotRequestId = result.SpotInstanceRequests[0].SpotInstanceRequestId;
+    const data = await ec2.waitFor('spotInstanceRequestFulfilled', { SpotInstanceRequestIds: [spotRequestId] }).promise();
+    const ec2InstanceId = data.SpotInstanceRequests[0].InstanceId;
+
+    // add tags
+    var tag_params = {
+      Resources: [`${ec2InstanceId}`],
+      Tags: config.tagSpecifications[0].Tags,
+    };
+
+    core.info(`${tag_params}`);
+    await ec2.createTags(tag_params).promise();
+
     core.info(`AWS EC2 instance ${ec2InstanceId} is started`);
     return ec2InstanceId;
   } catch (error) {
@@ -100,6 +152,7 @@ async function waitForInstanceRunning(ec2InstanceId) {
 
 module.exports = {
   startEc2Instance,
+  startEc2SpotInstance,
   terminateEc2Instance,
   waitForInstanceRunning,
 };

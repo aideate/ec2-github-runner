@@ -9,11 +9,16 @@ inputs:
     description: >-
       Specify here which mode you want to use:
         - 'start' - to start a new runner;
+        - 'start_spot' - to start a new spot instance runner;
         - 'stop' - to stop the previously created runner.
     required: true
   github-token:
     description: >-
       GitHub Personal Access Token with the 'repo' scope assigned.
+    required: true
+  key-name:
+    description: >-
+      The name of the key pair to associate with the instance.
     required: true
   ec2-image-id:
     description: >-
